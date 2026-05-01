@@ -1,8 +1,8 @@
 import "@testing-library/jest-dom";
-import { configureAxe } from "jest-axe";
+import { toHaveNoViolations } from "jest-axe";
 
 // Extend jest-axe matchers
-expect.extend(configureAxe());
+expect.extend(toHaveNoViolations);
 
 // Suppress console.error noise from React in tests
 const originalError = console.error;
