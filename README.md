@@ -2,7 +2,7 @@
 
 A fast, responsive Pokédex web app built with Next.js 14, TypeScript, and Tailwind CSS. Browse, search, filter, and favorite Pokémon — with smooth animations, a polished UI, and optional GitHub OAuth sign-in.
 
-**Live demo:** [Deploy to Vercel](#deployment)
+**Live demo:** [Deploy to Vercel]([#deployment](https://pokemon-deck-jndj.vercel.app/)
 
 ---
 
