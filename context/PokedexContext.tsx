@@ -34,7 +34,8 @@ export function PokedexProvider({
   initialTotal,
   userId,
 }: PokedexProviderProps) {
-  const [pokemonList, setPokemonList] = useState<PokemonListItem[]>(initialPokemon);
+  const [pageData, setPageData] = useState<Record<number, PokemonListItem[]>>({ 1: initialPokemon });
+  const [allFetchedPokemon, setAllFetchedPokemon] = useState<PokemonListItem[]>(initialPokemon);
   const [totalCount, setTotalCount] = useState(initialTotal);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,27 +61,32 @@ export function PokedexProvider({
   }, []);
 
   // Fetch a page from the API (used when no filters are active)
-  const loadPage = useCallback(async (page: number) => {
+  const loadPage = useCallback(async (page: number, force = false) => {
+    if (!force && pageData[page]) return; // already fetched
     setIsLoading(true);
     setError(null);
     try {
       const offset = (page - 1) * PAGE_SIZE;
       const { items, total } = await fetchPokemonPage(offset, PAGE_SIZE);
-      setPokemonList(items);
+      setPageData((prev) => ({ ...prev, [page]: items }));
+      setAllFetchedPokemon((prev) => {
+        const map = new Map(prev.map((p) => [p.id, p]));
+        items.forEach((p) => map.set(p.id, p));
+        return Array.from(map.values()).sort((a, b) => a.id - b.id);
+      });
       setTotalCount(total);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load Pokémon.");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [pageData]);
 
-  const retry = useCallback(() => loadPage(currentPage), [loadPage, currentPage]);
+  const retry = useCallback(() => loadPage(currentPage, true), [loadPage, currentPage]);
 
   // When page changes and no client-side filters are active, fetch from API
   useEffect(() => {
     if (searchQuery === "" && selectedTypes.length === 0 && !showFavoritesOnly) {
-      if (currentPage === 1 && pokemonList === initialPokemon) return; // already seeded
       loadPage(currentPage);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -88,7 +94,7 @@ export function PokedexProvider({
 
   // Client-side filtered list
   const filteredList = useMemo(() => {
-    let list = pokemonList;
+    let list = allFetchedPokemon;
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -106,16 +112,16 @@ export function PokedexProvider({
     }
 
     return list;
-  }, [pokemonList, searchQuery, selectedTypes, showFavoritesOnly, favorites]);
+  }, [allFetchedPokemon, searchQuery, selectedTypes, showFavoritesOnly, favorites]);
 
   // When filters are active, paginate client-side
   const isFiltering = searchQuery !== "" || selectedTypes.length > 0 || showFavoritesOnly;
 
   const displayList = useMemo(() => {
-    if (!isFiltering) return pokemonList; // server-paginated
+    if (!isFiltering) return pageData[currentPage] || []; // server-paginated
     const start = (currentPage - 1) * PAGE_SIZE;
     return filteredList.slice(start, start + PAGE_SIZE);
-  }, [isFiltering, pokemonList, filteredList, currentPage]);
+  }, [isFiltering, pageData, filteredList, currentPage]);
 
   const totalPages = useMemo(() => {
     if (isFiltering) return Math.max(1, Math.ceil(filteredList.length / PAGE_SIZE));
